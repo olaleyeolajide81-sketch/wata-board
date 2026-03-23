@@ -67,8 +67,41 @@ Open the URL shown (usually `http://localhost:5173`)
 
 ```bash
 cd wata-board-dapp
-npx ts-node src/index.ts
+npm run dev  # Development server with CORS
+# or
+npm start    # Production server
 ```
+
+The backend now runs as an Express.js server on `http://localhost:3001` with CORS configuration enabled.
+
+## CORS Configuration
+
+This project includes comprehensive CORS (Cross-Origin Resource Sharing) configuration to support cross-domain deployments and external integrations.
+
+### Features
+
+- ✅ **Environment-based CORS policies** (development vs production)
+- ✅ **Secure origin validation** with configurable whitelist
+- ✅ **Automatic localhost support** in development
+- ✅ **Production-ready security** with explicit origin control
+- ✅ **API integration** with proper CORS headers
+
+### Quick CORS Setup
+
+1. **Development**: Automatically allows `localhost` origins
+2. **Production**: Configure allowed origins in environment variables:
+
+```bash
+# Backend (.env)
+ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+NODE_ENV=production
+
+# Frontend (.env)
+VITE_API_URL=https://api.yourdomain.com
+VITE_FRONTEND_URL=https://yourdomain.com
+```
+
+For detailed CORS configuration, see [CORS_IMPLEMENTATION.md](./CORS_IMPLEMENTATION.md).
 
 ## Smart Contract
 
