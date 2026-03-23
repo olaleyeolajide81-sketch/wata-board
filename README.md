@@ -40,7 +40,21 @@ cd ../wata-board-dapp
 npm install
 ```
 
-### 2. Run Frontend (Development)
+### 2. Configure Environment Variables
+
+```bash
+# Setup frontend environment
+cd wata-board-frontend
+cp .env.example .env
+
+# Setup backend environment
+cd ../wata-board-dapp
+cp .env.example .env
+```
+
+Edit the `.env` files with your actual values. See the [Environment Variables](#environment-variables) section for detailed instructions.
+
+### 3. Run Frontend (Development)
 
 ```bash
 cd wata-board-frontend
@@ -49,7 +63,7 @@ npm run dev
 
 Open the URL shown (usually `http://localhost:5173`)
 
-### 3. Run Dapp (Backend)
+### 4. Run Dapp (Backend)
 
 ```bash
 cd wata-board-dapp
@@ -71,24 +85,43 @@ npx ts-node src/index.ts
 
 ## Environment Variables
 
-Create `.env` files for sensitive configuration:
+The project uses environment variables to manage configuration. Template files are provided for both frontend and backend components.
 
-### Frontend (.env)
-```
-VITE_CONTRACT_ID=CDRRJ7IPYDL36YSK5ZQLBG3LICULETIBXX327AGJQNTWXNKY2UMDO4DA
-VITE_RPC_URL=https://soroban-testnet.stellar.org
-```
+### Setup Instructions
 
-### Dapp (.env)
-```bash
-# Stellar secret key for the admin account
-# This key controls access to administrative functions of the smart contract
-ADMIN_SECRET_KEY=your_stellar_secret_key_here
+1. **Frontend Environment Setup**:
+   ```bash
+   cd wata-board-frontend
+   cp .env.example .env
+   ```
+   Edit `.env` with your configuration:
+   ```bash
+   VITE_CONTRACT_ID=CDRRJ7IPYDL36YSK5ZQLBG3LICULETIBXX327AGJQNTWXNKY2UMDO4DA
+   VITE_RPC_URL=https://soroban-testnet.stellar.org
+   ```
 
-# Contract configuration
-CONTRACT_ID=CDRRJ7IPYDL36YSK5ZQLBG3LICULETIBXX327AGJQNTWXNKY2UMDO4DA
-RPC_URL=https://soroban-testnet.stellar.org
-```
+2. **Backend Environment Setup**:
+   ```bash
+   cd wata-board-dapp
+   cp .env.example .env
+   ```
+   Edit `.env` with your configuration:
+   ```bash
+   ADMIN_SECRET_KEY=your_stellar_secret_key_here
+   CONTRACT_ID=CDRRJ7IPYDL36YSK5ZQLBG3LICULETIBXX327AGJQNTWXNKY2UMDO4DA
+   RPC_URL=https://soroban-testnet.stellar.org
+   ```
+
+### Required Variables
+
+#### Frontend (.env)
+- `VITE_CONTRACT_ID`: Stellar contract ID for the Wata Board smart contract
+- `VITE_RPC_URL`: RPC endpoint for Stellar Soroban network connection
+
+#### Backend (.env)
+- `ADMIN_SECRET_KEY`: Stellar secret key for admin account (controls contract access)
+- `CONTRACT_ID`: Stellar contract ID for the Wata Board smart contract  
+- `RPC_URL`: RPC endpoint for Stellar Soroban network connection
 
 ⚠️ **Security**: Never commit `.env` files with real keys to git! Use `.env.example` as a template and create your own `.env` file.
 
