@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isConnected, requestAccess, signTransaction } from "@stellar/freighter-api";
 import { Server, Networks, TransactionBuilder, Operation, Asset, BASE_FEE } from '@stellar/stellar-sdk';
 import * as NepaClient from './contracts';
@@ -8,11 +9,13 @@ import { SkipLinks } from './components/SkipLinks';
 import { OfflineBanner } from './components/OfflineBanner';
 import { OfflineStatusIndicator } from './components/OfflineStatusIndicator';
 import { OfflineErrorBoundary } from './components/OfflineErrorBoundary';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { usePaymentWithRateLimit } from './hooks/useRateLimit';
 import { useFeeEstimation } from './hooks/useFeeEstimation';
 import { useWalletBalance } from './hooks/useWalletBalance';
 import { useConnectivity } from './hooks/useConnectivity';
 import { useOfflineApi, handleOfflineError, getOfflineErrorMessage } from './utils/offlineApi';
+import { useRTL } from './hooks/useRTL';
 import { getCurrentNetworkConfig } from './utils/network-config';
 import { announceToScreenReader, generateId, getAriaLabel, setupKeyboardNavigation, setupFocusVisible } from './utils/accessibility';
 import { SchedulingService } from './services/schedulingService';
@@ -30,6 +33,8 @@ useEffect(() => {
 
 function Navigation() {
   const location = useLocation();
+  const { t } = useTranslation();
+  const { getFlexDirection } = useRTL();
 
   const isActive = (path: string) => {
     return location.pathname === path ? 'text-sky-400' : 'text-slate-300 hover:text-slate-100';
@@ -38,10 +43,16 @@ function Navigation() {
   return (
     <nav className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-sm sticky top-0 z-50" role="navigation" aria-label="Main navigation">
       <div className="mx-auto max-w-3xl px-4 py-4">
-        <div className="flex items-center justify-between">
+        <div className={`flex items-center justify-between ${getFlexDirection()}`}>
           <Link to="/" className="text-xl font-semibold tracking-tight text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded" aria-label="Wata-Board home page">
-            Wata-Board
+            {t('app.title')}
           </Link>
+          <div className={`flex items-center gap-6 ${getFlexDirection()}`}>
+            <div className={`flex items-center gap-4 text-sm ${getFlexDirection()}`} role="menubar">
+              <Link to="/" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/')}`} aria-current={location.pathname === '/' ? 'page' : undefined} role="menuitem">{t('navigation.home')}</Link>
+              <Link to="/about" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/about')}`} aria-current={location.pathname === '/about' ? 'page' : undefined} role="menuitem">{t('navigation.about')}</Link>
+              <Link to="/contact" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/contact')}`} aria-current={location.pathname === '/contact' ? 'page' : undefined} role="menuitem">{t('navigation.contact')}</Link>
+              <Link to="/rate" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/rate')}`} aria-current={location.pathname === '/rate' ? 'page' : undefined} role="menuitem">{t('navigation.rate')}</Link>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4 text-sm" role="menubar">
               <Link to="/" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/')}`} aria-current={location.pathname === '/' ? 'page' : undefined} role="menuitem">Pay Bill</Link>
@@ -50,6 +61,7 @@ function Navigation() {
               <Link to="/contact" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/contact')}`} aria-current={location.pathname === '/contact' ? 'page' : undefined} role="menuitem">Contact</Link>
               <Link to="/rate" className={`transition px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/rate')}`} aria-current={location.pathname === '/rate' ? 'page' : undefined} role="menuitem">Rate Us</Link>
             </div>
+            <LanguageSwitcher variant="compact" className="ml-4" />
             <WalletBalanceCompact className="text-sm" />
             <NetworkSwitcher showLabel={false} />
           </div>
@@ -60,6 +72,8 @@ function Navigation() {
 }
 
 function Home() {
+  const { t } = useTranslation();
+  const { getTextAlignClass, getFlexDirection } = useRTL();
   const [meterId, setMeterId] = useState('');
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState('');
@@ -228,9 +242,9 @@ function Home() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-6 lg:p-8 shadow-xl shadow-black/20">
             <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">Wata-Board</h1>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">{t('app.title')}</h1>
                 <p className="mt-2 max-w-prose text-sm text-slate-300">
-                  Decentralized utility payments on Stellar blockchain
+                  {t('app.tagline')}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -239,7 +253,7 @@ function Home() {
                   ? 'bg-orange-500/10 text-orange-300 ring-orange-500/20'
                   : 'bg-sky-500/10 text-sky-300 ring-sky-500/20'
                   }`} role="status" aria-live="polite">
-                  {isMainnet ? 'MAINNET' : 'TESTNET'}
+                  {isMainnet ? t('network.mainnet') : t('network.testnet')}
                 </div>
               </div>
             </header>
@@ -248,10 +262,10 @@ function Home() {
             {offlineActions.length > 0 && (
               <section className="mt-6 rounded-xl border border-sky-800 bg-sky-950/40 p-4" aria-labelledby="offline-queue">
                 <h2 id="offline-queue" className="text-xs font-semibold uppercase tracking-wide text-sky-400">
-                  Offline Queue
+                  {t('offline.queue.title')}
                 </h2>
                 <div className="mt-2 text-sm text-sky-100">
-                  {offlineActions.length} action{offlineActions.length === 1 ? '' : 's'} will be processed when you're back online
+                  {t('offline.queue.description', { count: offlineActions.length })}
                 </div>
               </section>
             )}
@@ -261,7 +275,7 @@ function Home() {
 
             {/* Rate Limit Status */}
             <section className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 p-4" aria-labelledby="rate-limit-status">
-              <h2 id="rate-limit-status" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Rate Limit Status</h2>
+              <h2 id="rate-limit-status" className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('payment.rateLimit.title')}</h2>
               <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="text-sm text-slate-100">
                   {paymentRateLimit.canMakeRequest
@@ -406,7 +420,6 @@ function App() {
   }, []);
 
   return (
-<<<<<<< HEAD
     <Router>
       <ResponsiveNavigation />
       <Routes>
@@ -417,7 +430,6 @@ function App() {
         <Route path="/rate" element={<Rate />} />
       </Routes>
     </Router>
-=======
     <OfflineErrorBoundary>
       <Router>
         <ResponsiveNavigation />
@@ -429,7 +441,6 @@ function App() {
         </Routes>
       </Router>
     </OfflineErrorBoundary>
->>>>>>> 79beabad76220a266b8bdad29722f20bc330bf53
   );
 }
 
