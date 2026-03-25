@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { isConnected, requestAccess, signTransaction } from "@stellar/freighter-api";
 import { Server, Networks, TransactionBuilder, Operation, Asset, BASE_FEE } from '@stellar/stellar-sdk';
@@ -7,7 +7,9 @@ import { ResponsiveNavigation } from './components/ResponsiveNavigation';
 import { usePaymentWithRateLimit } from './hooks/useRateLimit';
 import { useFeeEstimation } from './hooks/useFeeEstimation';
 import { useWalletBalance } from './hooks/useWalletBalance';
-import { getCurrentNetworkConfig } from './utils/network-config';
+import { getCurrentNetworkConfig, getNetworkFromEnv } from './utils/network-config';
+import { TransactionSuccess } from './components/TransactionSuccess';
+import type { TransactionDetails } from './components/TransactionSuccess';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Rate from './pages/Rate';
@@ -46,6 +48,7 @@ function Home() {
   const [meterId, setMeterId] = useState('');
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState('');
+  const [transactionDetails, setTransactionDetails] = useState<TransactionDetails | null>(null);
 
   const paymentRateLimit = usePaymentWithRateLimit();
   const { estimate: feeEstimate, isLoading: isEstimatingFee, estimateFee } = useFeeEstimation();
@@ -131,9 +134,16 @@ function Home() {
       // Submit the transaction
       const result = await server.submitTransaction(signedTransaction);
 
-      setStatus(`Payment successful! Transaction ID: ${result.hash.slice(0, 10)}...`);
       setMeterId('');
       setAmount('');
+      setTransactionDetails({
+        hash: result.hash,
+        meterId: meterId,
+        amount: amountU32,
+        timestamp: new Date(),
+        network: getNetworkFromEnv(),
+        explorerUrl: networkConfig.explorerUrl
+      });
 
       // Refresh balance after successful transaction
       setTimeout(() => {
@@ -181,109 +191,123 @@ function Home() {
           {/* Wallet Balance Display */}
           <WalletBalance className="mt-6" />
 
-          {/* Rate Limit Status */}
-          <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Rate Limit Status</div>
-            <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="text-sm text-slate-100">
-                {paymentRateLimit.canMakeRequest
-                  ? `${paymentRateLimit.status?.remainingRequests || 5}/5 requests available`
-                  : `Rate limited. Reset in ${formatTimeUntilReset(paymentRateLimit.timeUntilReset)}`
-                }
+          {transactionDetails ? (
+            <TransactionSuccess 
+              details={transactionDetails} 
+              onReset={() => {
+                setTransactionDetails(null);
+                setStatus('');
+                setMeterId('');
+                setAmount('');
+              }} 
+            />
+          ) : (
+            <>
+              {/* Rate Limit Status */}
+              <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Rate Limit Status</div>
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="text-sm text-slate-100">
+                    {paymentRateLimit.canMakeRequest
+                      ? `${paymentRateLimit.status?.remainingRequests || 5}/5 requests available`
+                      : `Rate limited. Reset in ${formatTimeUntilReset(paymentRateLimit.timeUntilReset)}`
+                    }
+                  </div>
+                  {paymentRateLimit.queueLength > 0 && (
+                    <div className="text-xs text-amber-300">
+                      Queue: {paymentRateLimit.queueLength}
+                    </div>
+                  )}
+                </div>
               </div>
-              {paymentRateLimit.queueLength > 0 && (
-                <div className="text-xs text-amber-300">
-                  Queue: {paymentRateLimit.queueLength}
+
+              {/* Fee Estimation Display */}
+              {feeEstimate && (
+                <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Transaction Fee Estimation {isEstimatingFee && '(Calculating...)'}
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {isEstimatingFee ? (
+                      <div className="text-sm text-slate-300">Calculating estimated fees...</div>
+                    ) : feeEstimate ? (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-300">Payment Amount:</span>
+                          <span className="text-slate-100 font-medium">{amount} XLM</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-300">Estimated Network Fee:</span>
+                          <span className="text-slate-100 font-medium">{feeEstimate.totalFee.toFixed(7)} XLM</span>
+                        </div>
+                        <div className="h-px bg-slate-700 my-2"></div>
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span className="text-slate-200">Total Cost:</span>
+                          <span className="text-sky-400">
+                            {(Number(amount) + feeEstimate.totalFee).toFixed(7)} XLM
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-amber-300">Unable to estimate fees at this time</div>
+                    )}
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Fee Estimation Display */}
-          {feeEstimate && (
-            <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Transaction Fee Estimation {isEstimatingFee && '(Calculating...)'}
+              <div className="mt-8 space-y-4">
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-slate-200">Meter number</span>
+                  <input
+                    className="h-12 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-4 text-sm text-slate-100 outline-none ring-sky-500/30 placeholder:text-slate-500 focus:ring-4 focus:ring-sky-500/20 transition-all"
+                    placeholder="e.g. METER-123"
+                    value={meterId}
+                    onChange={(e: any) => setMeterId(e.target.value)}
+                    disabled={paymentRateLimit.isProcessing}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-slate-200">Amount</span>
+                  <input
+                    className="h-12 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-4 text-sm text-slate-100 outline-none ring-sky-500/30 placeholder:text-slate-500 focus:ring-4 focus:ring-sky-500/20 transition-all"
+                    placeholder="Whole number"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={amount}
+                    onChange={(e: any) => setAmount(e.target.value)}
+                    disabled={paymentRateLimit.isProcessing}
+                  />
+                </label>
               </div>
-              <div className="mt-2 space-y-2">
-                {isEstimatingFee ? (
-                  <div className="text-sm text-slate-300">Calculating estimated fees...</div>
-                ) : feeEstimate ? (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-300">Payment Amount:</span>
-                      <span className="text-slate-100 font-medium">{amount} XLM</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-300">Estimated Network Fee:</span>
-                      <span className="text-slate-100 font-medium">{feeEstimate.totalFee.toFixed(7)} XLM</span>
-                    </div>
-                    <div className="h-px bg-slate-700 my-2"></div>
-                    <div className="flex justify-between text-sm font-semibold">
-                      <span className="text-slate-200">Total Cost:</span>
-                      <span className="text-sky-400">
-                        {(Number(amount) + feeEstimate.totalFee).toFixed(7)} XLM
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-sm text-amber-300">Unable to estimate fees at this time</div>
-                )}
+
+              <div className="mt-6 flex flex-col gap-4">
+                <button
+                  onClick={handlePayment}
+                  disabled={buttonState.disabled}
+                  className={`w-full h-12 inline-flex items-center justify-center rounded-xl px-6 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 ring-1 ring-inset ring-white/10 transition focus:outline-none focus:ring-4 focus:ring-sky-500/30 ${buttonState.className}`}
+                >
+                  {buttonState.text}
+                </button>
+                <p className="text-xs text-slate-400 text-center">
+                  Requires Freighter extension. 5 transactions per minute limit.
+                </p>
               </div>
-            </div>
+
+              <div className="mt-8 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</div>
+                <div className="mt-2 text-sm text-slate-100">
+                  {status || 'Ready.'}
+                  {paymentRateLimit.paymentError && (
+                    <div className="mt-2 text-amber-300">
+                      {paymentRateLimit.paymentError}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
-
-          <div className="mt-8 space-y-4">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-200">Meter number</span>
-              <input
-                className="h-12 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-4 text-sm text-slate-100 outline-none ring-sky-500/30 placeholder:text-slate-500 focus:ring-4 focus:ring-sky-500/20 transition-all"
-                placeholder="e.g. METER-123"
-                value={meterId}
-                onChange={(e: any) => setMeterId(e.target.value)}
-                disabled={paymentRateLimit.isProcessing}
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-200">Amount</span>
-              <input
-                className="h-12 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-4 text-sm text-slate-100 outline-none ring-sky-500/30 placeholder:text-slate-500 focus:ring-4 focus:ring-sky-500/20 transition-all"
-                placeholder="Whole number"
-                type="number"
-                min={1}
-                step={1}
-                value={amount}
-                onChange={(e: any) => setAmount(e.target.value)}
-                disabled={paymentRateLimit.isProcessing}
-              />
-            </label>
-          </div>
-
-          <div className="mt-6 flex flex-col gap-4">
-            <button
-              onClick={handlePayment}
-              disabled={buttonState.disabled}
-              className={`w-full h-12 inline-flex items-center justify-center rounded-xl px-6 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 ring-1 ring-inset ring-white/10 transition focus:outline-none focus:ring-4 focus:ring-sky-500/30 ${buttonState.className}`}
-            >
-              {buttonState.text}
-            </button>
-            <p className="text-xs text-slate-400 text-center">
-              Requires Freighter extension. 5 transactions per minute limit.
-            </p>
-          </div>
-
-          <div className="mt-8 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</div>
-            <div className="mt-2 text-sm text-slate-100">
-              {status || 'Ready.'}
-              {paymentRateLimit.paymentError && (
-                <div className="mt-2 text-amber-300">
-                  {paymentRateLimit.paymentError}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
