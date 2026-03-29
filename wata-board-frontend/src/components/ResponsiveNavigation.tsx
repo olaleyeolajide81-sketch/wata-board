@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NetworkSwitcher } from './NetworkSwitcher';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import MobileNavigation from './MobileNavigation';
 import { announceToScreenReader, trapFocus, removeFocusTrap, generateId, getAriaLabel } from '../utils/accessibility';
 
@@ -146,11 +147,13 @@ export const ResponsiveNavigation: React.FC = () => {
                   Rate Us
                 </Link>
               </div>
+              <ThemeSwitcher variant="icon" />
               <NetworkSwitcher showLabel={false} />
             </div>
 
             {/* Mobile menu button */}
             <div className="lg:hidden flex items-center gap-3">
+              <ThemeSwitcher variant="icon" />
               <NetworkSwitcher showLabel={false} />
               <button
                 ref={menuButtonRef}
@@ -174,7 +177,7 @@ export const ResponsiveNavigation: React.FC = () => {
 
           {/* Tablet Navigation (hidden on mobile, shown on tablet) */}
           <div className="hidden md:flex lg:hidden py-3 border-t border-slate-800" role="menubar">
-            <div className="flex items-center gap-4 text-sm w-full justify-center">
+            <div className="flex items-center gap-4 text-sm w-full justify-center flex-1">
               <Link
                 to="/"
                 className={`transition px-3 py-1 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/')}`}
@@ -207,6 +210,10 @@ export const ResponsiveNavigation: React.FC = () => {
               >
                 Rate Us
               </Link>
+              <div className="ml-auto flex items-center gap-3">
+                <ThemeSwitcher variant="icon" />
+                <NetworkSwitcher showLabel={false} />
+              </div>
             </div>
           </div>
         </div>

@@ -6,6 +6,8 @@ import https from 'https';
 import fs from 'fs';
 import { PaymentService, PaymentRequest } from './payment-service';
 import { RateLimiter, RateLimitConfig } from './rate-limiter';
+import logger, { auditLogger } from './utils/logger';
+import { HealthService } from './utils/health';
 
 // Load environment variables
 dotenv.config();
@@ -63,7 +65,7 @@ const corsOptions: cors.CorsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`CORS: Origin ${origin} not allowed`);
+      logger.warn('CORS: Origin not allowed', { origin });
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -91,18 +93,48 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - ${req.ip}`);
+  logger.info('Incoming HTTP Request', { 
+    method: req.method, 
+    path: req.path, 
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
   next();
 });
 
-// Health check endpoint
+// Health check endpoints (Liveness, Readiness, Full)
+
+/**
+ * GET /health
+ * Basic liveness check (fast, no heavy resource checking).
+ */
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
-  });
+  res.status(200).json(HealthService.getLiveness());
+});
+
+/**
+ * GET /health/ready
+ * Readiness check ensures the app is ready to take traffic and connect to dependencies.
+ */
+app.get('/health/ready', async (req, res) => {
+  const readiness = await HealthService.getReadiness();
+  const status = readiness.status === 'UP' ? 200 : 503;
+  res.status(status).json(readiness);
+});
+
+/**
+ * GET /health/full
+ * Full diagnostics (requires appropriate authorization in production).
+ */
+app.get('/health/full', async (req, res) => {
+  try {
+    const fullHealth = await HealthService.getFullHealth();
+    const status = fullHealth.status === 'UP' ? 200 : 503;
+    res.status(status).json(fullHealth);
+  } catch (error) {
+    logger.error('Health check full: Failed', { error });
+    res.status(500).json({ status: 'DOWN', error: 'Diagnostics failed' });
+  }
 });
 
 // API Routes
@@ -149,7 +181,7 @@ app.post('/api/payment', async (req, res) => {
     res.set('X-Rate-Limit-Remaining', result.rateLimitInfo?.remainingRequests?.toString() || '0');
 
     if (result.success) {
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         transactionId: result.transactionId,
         rateLimitInfo: {
@@ -160,19 +192,19 @@ app.post('/api/payment', async (req, res) => {
     } else {
       // Handle rate limit errors with appropriate status codes
       if (result.error?.includes('Rate limit exceeded')) {
-        res.status(429).json({
+        return res.status(429).json({
           success: false,
           error: result.error,
           rateLimitInfo: result.rateLimitInfo
         });
       } else if (result.error?.includes('queued')) {
-        res.status(202).json({
+        return res.status(202).json({
           success: false,
           error: result.error,
           rateLimitInfo: result.rateLimitInfo
         });
       } else {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           error: result.error,
           rateLimitInfo: result.rateLimitInfo
@@ -180,8 +212,8 @@ app.post('/api/payment', async (req, res) => {
       }
     }
   } catch (error) {
-    console.error('Payment processing error:', error);
-    res.status(500).json({
+    logger.error('Payment processing exception', { error, body: req.body });
+    return res.status(500).json({
       success: false,
       error: 'Internal server error'
     });
@@ -206,7 +238,7 @@ app.get('/api/rate-limit/:userId', (req, res) => {
     const status = paymentService.getRateLimitStatus(userId);
     const queueLength = paymentService.getQueueLength(userId);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: {
         ...status,
@@ -214,8 +246,8 @@ app.get('/api/rate-limit/:userId', (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Rate limit status error:', error);
-    res.status(500).json({
+    logger.error('Rate limit query failed', { error, userId: req.params.userId });
+    return res.status(500).json({
       success: false,
       error: 'Internal server error'
     });
@@ -250,7 +282,7 @@ app.get('/api/payment/:meterId', async (req, res) => {
     const total = await client.get_total_paid({ meter_id: meterId });
     const formattedTotal = Number(total.result);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: {
         meterId,
@@ -259,8 +291,8 @@ app.get('/api/payment/:meterId', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get total paid error:', error);
-    res.status(500).json({
+    logger.error('Total paid query failed', { error, meterId: req.params.meterId });
+    return res.status(500).json({
       success: false,
       error: 'Failed to retrieve payment information'
     });
@@ -282,9 +314,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
       error: 'CORS policy violation'
     });
   }
-
-  console.error('Unhandled error:', err);
-  res.status(500).json({
+  
+  logger.error('Unhandled server error', { err, method: req.method, path: req.path });
+  return res.status(500).json({
     success: false,
     error: 'Internal server error'
   });
@@ -350,11 +382,12 @@ function startServer() {
 
     // Create HTTPS server
     https.createServer(sslOptions, app).listen(443, () => {
-      console.log('� HTTPS Server running on port 443');
-      console.log(`📝 Environment: ${nodeEnv}`);
-      console.log(`🌐 Network: ${process.env.NETWORK || 'testnet'}`);
-      console.log(`🔒 CORS enabled for origins: ${getAllowedOrigins().join(', ')}`);
-      console.log(`⏱️  Rate limit: ${RATE_LIMIT_CONFIG.maxRequests} requests per ${RATE_LIMIT_CONFIG.windowMs / 1000} seconds`);
+      logger.info('🚀 HTTPS Production Server running on port 443', {
+        environment: nodeEnv,
+        network: process.env.NETWORK || 'testnet',
+        origins: getAllowedOrigins(),
+        rateLimit: `${RATE_LIMIT_CONFIG.maxRequests} requests per ${RATE_LIMIT_CONFIG.windowMs / 1000} seconds`
+      });
     });
 
     // Redirect HTTP to HTTPS
@@ -368,11 +401,11 @@ function startServer() {
   } else {
     // Development HTTP server
     app.listen(PORT, () => {
-      console.log(`🚀 Wata-Board API Server running on port ${PORT}`);
-      console.log(`📝 Environment: ${nodeEnv}`);
-      console.log(`🌐 Network: ${process.env.NETWORK || 'testnet'}`);
-      console.log(`🔒 CORS enabled for origins: ${getAllowedOrigins().join(', ')}`);
-      console.log(`⏱️  Rate limit: ${RATE_LIMIT_CONFIG.maxRequests} requests per ${RATE_LIMIT_CONFIG.windowMs / 1000} seconds`);
+      logger.info(`🚀 Wata-Board API Development Server running on port ${PORT}`, {
+        environment: nodeEnv,
+        network: process.env.NETWORK || 'testnet',
+        origins: getAllowedOrigins()
+      });
     });
   }
 }
