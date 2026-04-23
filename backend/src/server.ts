@@ -16,6 +16,8 @@ import currencyRoutes from './routes/currency';
 import { handleClientError, apiErrorHandler } from './middleware/errorHandler';
 import { AnalyticsService } from './services/analyticsService';
 import { getTransactionStatus, startWebsocketService, updateTransactionStatus } from './services/websocketService';
+import configRoutes from './routes/config';
+import { captureAndTrackConfig } from './utils/configSnapshot';
 import {
   sanitizeString,
   sanitizeAlphanumeric,
@@ -26,6 +28,9 @@ import {
 
 // Load environment variables
 dotenv.config();
+
+// Capture and version the active configuration at startup
+captureAndTrackConfig();
 
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG: RateLimitConfig = {
@@ -130,6 +135,8 @@ app.use('/api/payment', tieredRateLimiter.middleware());
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/currency', currencyRoutes);
 app.use('/api/upgrade', upgradeRoutes);
+// ── Configuration versioning (#configuration-versioning) ──
+app.use('/api/config', configRoutes);
 
 // Health check endpoints (Liveness, Readiness, Full)
 
