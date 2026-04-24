@@ -6,6 +6,7 @@ import https from 'https';
 import fs from 'fs';
 import { PaymentService, PaymentRequest } from './payment-service';
 import { RateLimiter, RateLimitConfig } from './rate-limiter';
+import { kycService, KYCStatus } from './services/kyc-service';
 
 // Load environment variables
 dotenv.config();
@@ -266,6 +267,73 @@ app.get('/api/payment/:meterId', async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /api/user/kyc/:userId
+ * Get KYC status for a user
+ */
+app.get('/api/user/kyc/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const status = await kycService.getStatus(userId);
+    res.status(200).json({ success: true, status });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to get KYC status' });
+  }
+});
+
+/**
+ * POST /api/user/kyc/submit
+ * Submit KYC verification
+ */
+app.post('/api/user/kyc/submit', async (req, res) => {
+  try {
+    const { userId, documentType } = req.body;
+    const data = await kycService.submitKYC(userId, documentType);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to submit KYC' });
+  }
+});
+
+/**
+ * GET /api/user/export-data/:userId
+ * Export user data (GDPR Right to Portability)
+ */
+app.get('/api/user/export-data/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Mock data export
+    const userData = {
+      userId,
+      kycStatus: await kycService.getStatus(userId),
+      exportDate: new Date().toISOString(),
+      disclaimer: 'This is a mock export of your data held by Wata Board.'
+    };
+    res.status(200).json({ success: true, data: userData });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to export data' });
+  }
+});
+
+/**
+ * DELETE /api/user/delete-data/:userId
+ * Delete user data (GDPR Right to Erasure)
+ */
+app.delete('/api/user/delete-data/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // In a real system, you would delete records from the DB here
+    console.log(`GDPR: Deleting all data for user ${userId}`);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Data deletion request received and is being processed.' 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to initiate data deletion' });
+  }
+});
+
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

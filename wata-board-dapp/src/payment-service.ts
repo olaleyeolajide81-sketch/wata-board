@@ -1,4 +1,6 @@
 import { RateLimiter, RateLimitConfig, RateLimitResult } from './rate-limiter';
+import { kycService, KYCStatus } from './services/kyc-service';
+
 
 export interface PaymentRequest {
   meter_id: string;
@@ -26,7 +28,25 @@ export class PaymentService {
    */
   async processPayment(request: PaymentRequest): Promise<PaymentResult> {
     try {
-      // Check rate limit
+      // 1. KYC Check
+      const kycStatus = await kycService.getStatus(request.userId);
+      if (kycStatus !== KYCStatus.VERIFIED) {
+        return {
+          success: false,
+          error: `KYC Verification Required. Current status: ${kycStatus}`
+        };
+      }
+
+      // 2. AML Check
+      const amlPassed = await kycService.performAMLCheck(request.userId, request.amount);
+      if (!amlPassed) {
+        return {
+          success: false,
+          error: 'Transaction flagged by AML monitoring system.'
+        };
+      }
+
+      // 3. Check rate limit
       const rateLimitResult = await this.rateLimiter.checkLimit(request.userId);
       
       if (!rateLimitResult.allowed && !rateLimitResult.queued) {
@@ -36,6 +56,7 @@ export class PaymentService {
           rateLimitInfo: rateLimitResult
         };
       }
+
 
       if (rateLimitResult.queued) {
         return {

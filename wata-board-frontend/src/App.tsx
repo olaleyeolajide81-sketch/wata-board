@@ -20,7 +20,9 @@ import { SkipLinks } from './components/SkipLinks';
 import { OfflineBanner } from './components/OfflineBanner';
 import { OfflineStatusIndicator } from './components/OfflineStatusIndicator';
 import { OfflineErrorBoundary } from './components/OfflineErrorBoundary';
+import { GDPRConsent } from './components/GDPRConsent';
 import { handleOfflineError, getOfflineErrorMessage } from './utils/offlineApi';
+
 import { getCurrentNetworkConfig } from './utils/network-config';
 import { announceToScreenReader, generateId, setupKeyboardNavigation, setupFocusVisible } from './utils/accessibility';
 import { SchedulingService } from './services/schedulingService';
@@ -517,7 +519,9 @@ export default function App() {
             <Route path="/rate" element={<Rate />} />
             <Route path="/schedules" element={<ScheduledPayments />} />
           </Routes>
+          <GDPRConsent />
         </div>
+
       </OfflineErrorBoundary>
     </Router>
   );
