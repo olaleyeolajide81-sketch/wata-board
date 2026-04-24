@@ -23,12 +23,12 @@ async function main() {
 
     const adminKeypair = Keypair.fromSecret(adminSecret);
 
-    const meterId = "METER-001";
+    const meterId = process.env.PAYMENT_METER_ID || 'METER-001';
 
     console.log(`Processing payment on ${networkConfig.networkPassphrase.includes('Test') ? 'Testnet' : 'Mainnet'}...`);
 
     // Amount as u32 (matches contract)
-    const amount = 10;
+    const amount = Number(process.env.PAYMENT_AMOUNT || '10');
 
     const tx = await client.pay_bill({
         meter_id: meterId,

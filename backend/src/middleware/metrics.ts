@@ -22,6 +22,7 @@ export interface SystemHealth {
   memoryUsageMb: number;
   activeConnections: number;
   requestsPerMinute: number;
+  avgResponseTimeMs: number;
   errorRate: number;
 }
 
@@ -76,11 +77,19 @@ class MetricsCollector {
     const errors = recentMetrics.filter((m) => m.statusCode >= 400);
     const mem = process.memoryUsage();
 
+    const avgResponseTimeMs = recentMetrics.length
+      ? Math.round(
+          recentMetrics.reduce((sum, m) => sum + m.responseTimeMs, 0) /
+            recentMetrics.length,
+        )
+      : 0;
+
     return {
       uptime: process.uptime(),
       memoryUsageMb: Math.round(mem.heapUsed / 1024 / 1024),
       activeConnections: this.activeConnections,
       requestsPerMinute: recentMetrics.length,
+      avgResponseTimeMs,
       errorRate:
         recentMetrics.length > 0 ? errors.length / recentMetrics.length : 0,
     };
