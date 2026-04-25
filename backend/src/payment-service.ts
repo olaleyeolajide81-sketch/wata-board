@@ -80,6 +80,12 @@ export class PaymentService {
 
       if (!rateLimitResult.allowed && !rateLimitResult.queued) {
         logger.warn('Payment rejected: rate limit exceeded', { userId: request.userId, rateLimitResult });
+        auditLogger.log('Payment rejected due to rate limit', { 
+          userId: request.userId, 
+          meterId: request.meter_id, 
+          amount: request.amount,
+          reason: 'rate_limit_exceeded'
+        });
         return {
           success: false,
           error: this.getRateLimitError(rateLimitResult),
@@ -91,6 +97,12 @@ export class PaymentService {
 
       if (rateLimitResult.queued) {
         logger.info('Payment queued', { userId: request.userId, queuePosition: rateLimitResult.queuePosition });
+        auditLogger.log('Payment queued for processing', { 
+          userId: request.userId, 
+          meterId: request.meter_id, 
+          amount: request.amount,
+          queuePosition: rateLimitResult.queuePosition 
+        });
         return {
           success: false,
           error: this.getQueueMessage(rateLimitResult),
@@ -106,7 +118,13 @@ export class PaymentService {
       try {
         const transactionId = await this.executePayment(request);
 
-        auditLogger.log('Payment executed successfully', { userId: request.userId, transactionId, meter_id: request.meter_id, amount: request.amount });
+        auditLogger.log('Payment executed successfully', { 
+          userId: request.userId, 
+          transactionId, 
+          meterId: request.meter_id, 
+          amount: request.amount,
+          status: 'success'
+        });
 
         return {
           success: true,
@@ -120,6 +138,13 @@ export class PaymentService {
 
     } catch (error) {
       logger.error('Payment processing failed', { error, request });
+      auditLogger.log('Payment failed', { 
+        userId: request.userId, 
+        meterId: request.meter_id, 
+        amount: request.amount,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        status: 'failed'
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown payment error',
