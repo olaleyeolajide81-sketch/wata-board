@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import dotenv from "dotenv";
 import https from "https";
 import fs from "fs";
 import { PaymentService, PaymentRequest } from "./payment-service";
@@ -23,10 +22,26 @@ import {
   updateTransactionStatus,
 } from "./services/websocketService";
 import configRoutes from "./routes/config";
+import { captureAndTrackConfig } from "./utils/configSnapshot";
+import { captureException } from "./utils/errorTracker";
+import { envConfig } from "./utils/env";
+import {
+  sanitizeString,
+  sanitizeAlphanumeric,
+  sanitizePositiveNumber,
+  validationError,
+  type ValidationError,
+} from "./utils/sanitize";
+
+// Capture and version the active configuration at startup
+captureAndTrackConfig();
 import { config } from './config/appConfig';
 
 // Rate limiting configuration from config
 const RATE_LIMIT_CONFIG: RateLimitConfig = {
+  windowMs: envConfig.RATE_LIMIT_WINDOW_MS,
+  maxRequests: envConfig.RATE_LIMIT_MAX_REQUESTS,
+  queueSize: envConfig.RATE_LIMIT_QUEUE_SIZE,
   windowMs: config.rateLimits.tierLimits.anonymous.windowMs,
   maxRequests: config.rateLimits.tierLimits.anonymous.maxRequests,
   queueSize: config.rateLimits.tierLimits.anonymous.queueSize,
@@ -37,6 +52,7 @@ const paymentService = new PaymentService(RATE_LIMIT_CONFIG);
 
 // Create Express app
 const app = express();
+const PORT = envConfig.PORT;
 const PORT = config.server.port;
 
 // Security middleware with enhanced HTTPS support
@@ -74,7 +90,7 @@ const corsOptions: cors.CorsOptions = {
     // Get allowed origins from environment or use defaults
     const allowedOrigins = getAllowedOrigins();
 
-    if (process.env.NODE_ENV === "development") {
+    if (envConfig.NODE_ENV === "development") {
       // In development, allow localhost with any port
       if (
         origin.startsWith("http://localhost:") ||
@@ -275,6 +291,10 @@ app.post("/api/payment", async (req, res) => {
     }
   } catch (error) {
     logger.error("Payment processing exception", { error, body: req.body });
+    void captureException(error, {
+      source: 'payment-route',
+      body: req.body,
+    });
     return res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -439,42 +459,59 @@ app.use("*", (req, res) => {
 // Helper functions
 
 function getAllowedOrigins(): string[] {
+  const origins = [...envConfig.ALLOWED_ORIGINS];
+
+  // Add default origins based on environment
+  if (envConfig.NODE_ENV === "development") {
+    origins.push("http://localhost:3000", "http://localhost:5173");
+  } else if (envConfig.NODE_ENV === "production") {
+    if (envConfig.FRONTEND_URL) {
+      origins.push(envConfig.FRONTEND_URL);
+    }
+  }
+
+  return origins.filter((origin) => origin.trim().length > 0);
   return config.cors.allowedOrigins;
 }
 
 function getNetworkConfig() {
-  const network = process.env.NETWORK || "testnet";
+  const network = envConfig.NETWORK;
 
   if (network === "mainnet") {
     return {
-      networkPassphrase:
-        process.env.NETWORK_PASSPHRASE_MAINNET ||
-        "Public Global Stellar Network ; September 2015",
-      contractId: process.env.CONTRACT_ID_MAINNET || "",
-      rpcUrl: process.env.RPC_URL_MAINNET || "https://soroban.stellar.org",
+      networkPassphrase: envConfig.NETWORK_PASSPHRASE_MAINNET,
+      contractId: envConfig.CONTRACT_ID_MAINNET,
+      rpcUrl: envConfig.RPC_URL_MAINNET,
     };
   } else {
     return {
-      networkPassphrase:
-        process.env.NETWORK_PASSPHRASE_TESTNET ||
-        "Test SDF Network ; September 2015",
-      contractId:
-        process.env.CONTRACT_ID_TESTNET ||
-        "CDRRJ7IPYDL36YSK5ZQLBG3LICULETIBXX327AGJQNTWXNKY2UMDO4DA",
-      rpcUrl:
-        process.env.RPC_URL_TESTNET || "https://soroban-testnet.stellar.org",
+      networkPassphrase: envConfig.NETWORK_PASSPHRASE_TESTNET,
+      contractId: envConfig.CONTRACT_ID_TESTNET,
+      rpcUrl: envConfig.RPC_URL_TESTNET,
     };
   }
 }
 
 // Start server with HTTPS support
 function startServer() {
+  const httpsEnabled = envConfig.HTTPS_ENABLED;
+  const nodeEnv = envConfig.NODE_ENV;
   const httpsEnabled = config.server.httpsEnabled;
   const nodeEnv = config.server.nodeEnv;
 
   if (httpsEnabled && nodeEnv === "production") {
     // HTTPS configuration for production
     const sslOptions = {
+      key: fs.readFileSync(
+        envConfig.SSL_KEY_PATH ||
+          "/etc/letsencrypt/live/yourdomain.com/privkey.pem",
+      ),
+      cert: fs.readFileSync(
+        envConfig.SSL_CERT_PATH ||
+          "/etc/letsencrypt/live/yourdomain.com/fullchain.pem",
+      ),
+      ca: fs.readFileSync(
+        envConfig.SSL_CA_PATH ||
       key: fs.readFileSync(config.server.sslKeyPath!),
       cert: fs.readFileSync(config.server.sslCertPath!),
       ca: fs.readFileSync(config.server.sslCaPath!),
@@ -484,6 +521,7 @@ function startServer() {
     https.createServer(sslOptions, app).listen(443, () => {
       logger.info("🚀 HTTPS Production Server running on port 443", {
         environment: nodeEnv,
+        network: envConfig.NETWORK,
         network: config.network.type,
         origins: getAllowedOrigins(),
         rateLimit: `${RATE_LIMIT_CONFIG.maxRequests} requests per ${RATE_LIMIT_CONFIG.windowMs / 1000} seconds`,
@@ -505,6 +543,7 @@ function startServer() {
         `🚀 Wata-Board API Development Server running on port ${PORT}`,
         {
           environment: nodeEnv,
+          network: envConfig.NETWORK,
           network: config.network.type,
           origins: getAllowedOrigins(),
         },
