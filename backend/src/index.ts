@@ -1,11 +1,8 @@
 // Fixed path: added ../ to go up one level from 'src' to find 'packages'
 import * as NepaClient from '../packages/nepa_client_v2';
 import { Keypair } from '@stellar/stellar-sdk';
-import dotenv from 'dotenv';
+import { envConfig } from './utils/env';
 import { getCurrentNetworkConfig } from './utils/network-config';
-
-// Load environment variables
-dotenv.config();
 
 async function main() {
     // Get current network configuration

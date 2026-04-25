@@ -537,7 +537,7 @@ function startServer() {
       console.log("🔄 HTTP redirect server running on port 80");
     });
   } else {
-    // Development HTTP server
+    // Development / non-HTTPS server
     app.listen(PORT, () => {
       logger.info(
         `🚀 Wata-Board API Development Server running on port ${PORT}`,
