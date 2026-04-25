@@ -193,26 +193,52 @@ body {
   overflow: hidden;
 }
 
-/* Enhanced button accessibility */
-button:focus {
+/* Touch target size improvements */
+button, 
+a, 
+input, 
+select, 
+textarea {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+}
+
+/* Global Focus Management */
+*:focus-visible {
+  outline: 3px solid #0ea5e9 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.2) !important;
+}
+
+/* Fallback for browsers that don't support focus-visible */
+*:focus {
   outline: 2px solid #0ea5e9;
   outline-offset: 2px;
 }
 
-button:focus:not(:focus-visible) {
-  outline: 2px solid #0ea5e9;
-  outline-offset: 2px;
+/* Specific component touch target increases */
+.nav-link,
+.button-primary,
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
-/* Enhanced input accessibility */
-input:focus {
-  outline: 2px solid #0ea5e9;
-  outline-offset: 2px;
-}
-
-input:focus:not(:focus-visible) {
-  outline: 2px solid #0ea5e9;
-  outline-offset: 2px;
+@media (max-width: 640px) {
+  button, 
+  a, 
+  input, 
+  select, 
+  textarea {
+    min-width: 48px; /* Increased for mobile specifically */
+    min-height: 48px;
+  }
 }
 
 /* Link accessibility */

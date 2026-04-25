@@ -1,8 +1,11 @@
 import { RateLimiter, RateLimitConfig, RateLimitResult } from './rate-limiter';
+import { kycService, KYCStatus } from './services/kyc-service';
 import logger, { auditLogger } from './utils/logger';
 import { PaymentRequest as SharedPaymentRequest, PaymentResponse, RateLimitInfo, createApiResponse } from '../../../shared/types';
 
+
 // Legacy interface for backward compatibility - deprecated
+
 export interface PaymentRequest {
   meter_id: string;
   amount: number;
@@ -37,10 +40,31 @@ export class PaymentService {
    */
   async processPayment(request: PaymentRequest): Promise<PaymentResult> {
     try {
+      // 1. KYC Check
+      const kycStatus = await kycService.getStatus(request.userId);
+      if (kycStatus !== KYCStatus.VERIFIED) {
+        return {
+          success: false,
+          error: `KYC Verification Required. Current status: ${kycStatus}`,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // 2. AML Check
+      const amlPassed = await kycService.performAMLCheck(request.userId, request.amount);
+      if (!amlPassed) {
+        return {
+          success: false,
+          error: 'Transaction flagged by AML monitoring system.',
+          timestamp: new Date().toISOString()
+        };
+      }
+
       // Convert to standardized format
       const standardRequest = convertToStandardRequest(request);
       
       // Check rate limit
+
       const rateLimitResult = await this.rateLimiter.checkLimit(request.userId);
       
       // Convert RateLimitResult to RateLimitInfo for standardized response
@@ -69,6 +93,7 @@ export class PaymentService {
           rateLimitInfo
         };
       }
+
 
       if (rateLimitResult.queued) {
         logger.info('Payment queued', { userId: request.userId, queuePosition: rateLimitResult.queuePosition });

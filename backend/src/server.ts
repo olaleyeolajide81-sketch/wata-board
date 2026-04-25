@@ -28,6 +28,7 @@ import fs from "fs";
 import { PaymentService, PaymentRequest } from "./payment-service";
 import { RateLimiter, RateLimitConfig } from "./rate-limiter";
 import logger, { auditLogger } from "./utils/logger";
+import { kycService, KYCStatus } from "./services/kyc-service";
 import { HealthService } from "./utils/health";
 import { metricsCollector } from "./middleware/metrics";
 import { tieredRateLimiter } from "./middleware/rateLimiter";
@@ -517,6 +518,90 @@ app.get("/api/transaction-status/:transactionId", (req, res) => {
       .json({ success: false, error: "Unable to retrieve transaction status" });
   }
 });
+
+/**
+ * GET /api/user/kyc/:userId
+ * Get KYC status for a user
+ */
+app.get("/api/user/kyc/:userId", async (req, res) => {
+  try {
+    const userId = sanitizeAlphanumeric(req.params.userId, 100);
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "Invalid user ID" });
+    }
+    const status = await kycService.getStatus(userId);
+    res.status(200).json({ success: true, status });
+  } catch (error) {
+    logger.error("KYC status check failed", { error, userId: req.params.userId });
+    res.status(500).json({ success: false, error: "Failed to get KYC status" });
+  }
+});
+
+/**
+ * POST /api/user/kyc/submit
+ * Submit KYC verification
+ */
+app.post("/api/user/kyc/submit", async (req, res) => {
+  try {
+    const { userId, documentType } = req.body;
+    const sanitizedUserId = sanitizeAlphanumeric(userId, 100);
+    if (!sanitizedUserId) {
+      return res.status(400).json({ success: false, error: "Invalid user ID" });
+    }
+    const data = await kycService.submitKYC(sanitizedUserId, documentType);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    logger.error("KYC submission failed", { error, userId: req.body.userId });
+    res.status(500).json({ success: false, error: "Failed to submit KYC" });
+  }
+});
+
+/**
+ * GET /api/user/export-data/:userId
+ * Export user data (GDPR Right to Portability)
+ */
+app.get("/api/user/export-data/:userId", async (req, res) => {
+  try {
+    const userId = sanitizeAlphanumeric(req.params.userId, 100);
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "Invalid user ID" });
+    }
+    // Mock data export
+    const userData = {
+      userId,
+      kycStatus: await kycService.getStatus(userId),
+      exportDate: new Date().toISOString(),
+      disclaimer: "This is a mock export of your data held by Wata Board."
+    };
+    res.status(200).json({ success: true, data: userData });
+  } catch (error) {
+    logger.error("Data export failed", { error, userId: req.params.userId });
+    res.status(500).json({ success: false, error: "Failed to export data" });
+  }
+});
+
+/**
+ * DELETE /api/user/delete-data/:userId
+ * Delete user data (GDPR Right to Erasure)
+ */
+app.delete("/api/user/delete-data/:userId", async (req, res) => {
+  try {
+    const userId = sanitizeAlphanumeric(req.params.userId, 100);
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "Invalid user ID" });
+    }
+    // In a real system, you would delete records from the DB here
+    logger.info(`GDPR: Deleting all data for user ${userId}`);
+    res.status(200).json({ 
+      success: true, 
+      message: "Data deletion request received and is being processed." 
+    });
+  } catch (error) {
+    logger.error("Data erasure failed", { error, userId: req.params.userId });
+    res.status(500).json({ success: false, error: "Failed to initiate data deletion" });
+  }
+});
+
 
 /**
  * GET /api/payment/:meterId

@@ -119,7 +119,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ isOpen, onClose }) 
             <div className="space-y-2" role="menu">
               <Link
                 to="/"
-                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/')}`}
+                className={`block px-4 py-4 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/')}`}
                 onClick={onClose}
                 aria-current={location.pathname === '/' ? 'page' : undefined}
                 role="menuitem"
@@ -128,7 +128,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ isOpen, onClose }) 
               </Link>
               <Link
                 to="/about"
-                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/about')}`}
+                className={`block px-4 py-4 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/about')}`}
                 onClick={onClose}
                 aria-current={location.pathname === '/about' ? 'page' : undefined}
                 role="menuitem"
@@ -137,7 +137,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ isOpen, onClose }) 
               </Link>
               <Link
                 to="/contact"
-                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/contact')}`}
+                className={`block px-4 py-4 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/contact')}`}
                 onClick={onClose}
                 aria-current={location.pathname === '/contact' ? 'page' : undefined}
                 role="menuitem"
@@ -146,7 +146,8 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ isOpen, onClose }) 
               </Link>
               <Link
                 to="/rate"
-                className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/rate')}`}
+                className={`block px-4 py-4 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isActive('/rate')}`}
+
                 onClick={onClose}
                 aria-current={location.pathname === '/rate' ? 'page' : undefined}
                 role="menuitem"

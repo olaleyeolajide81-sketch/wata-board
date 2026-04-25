@@ -8,6 +8,7 @@ import { ResponsiveNavigation } from './components/ResponsiveNavigation';
 import { SkipLinks } from './components/SkipLinks';
 import { OfflineBanner } from './components/OfflineBanner';
 import { OfflineStatusIndicator } from './components/OfflineStatusIndicator';
+import { GDPRConsent } from './components/GDPRConsent';
 import { WalletBalance } from './components/WalletBalance';
 import { TransactionSuccess } from './components/TransactionSuccess';
 import type { TransactionDetails } from './components/TransactionSuccess';
@@ -24,6 +25,7 @@ import { getCurrentNetworkConfig, getNetworkFromEnv } from './utils/network-conf
 import { useWalletBalance } from './hooks/useWalletBalance';
 import { useFeeEstimation } from './hooks/useFeeEstimation';
 import { handleOfflineError, getOfflineErrorMessage } from './utils/offlineApi';
+
 import { announceToScreenReader, generateId, setupKeyboardNavigation, setupFocusVisible } from './utils/accessibility';
 import { sanitizeAlphanumeric, sanitizeAmount, isValidMeterId, isValidAmount } from './utils/sanitize';
 import { logger } from './utils/logger';
@@ -367,8 +369,10 @@ export default function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/retention-policy" element={<DataRetentionPolicy />} />
           </Routes>
+          <GDPRConsent />
         </div>
       </ErrorBoundary>
+
     </Router>
   );
 }
