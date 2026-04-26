@@ -20,7 +20,24 @@ services:
       - VITE_NETWORK=testnet
     restart: "no"
 
-  # Backend API service
+  # Redis — shared bus for WebSocket fan-out across backend replicas.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - wata-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # Backend API service — runs as multiple replicas behind the nginx upstream
+  # pool. No host port mapping: nginx is the only ingress.
   backend:
     build:
       context: ./wata-board-dapp
@@ -28,6 +45,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - WS_PORT=3002
       - NETWORK=testnet
       - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY}
       - CONTRACT_ID_TESTNET=CDRRJ7IPYDL36YSK5ZQLBG3LICULETIBXX327AGJQNTWXNKY2UMDO4DA
@@ -38,12 +56,26 @@ services:
       - NETWORK_PASSPHRASE_MAINNET=Public Global Stellar Network ; September 2015
       - ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
       - FRONTEND_URL=https://yourdomain.com
+      - REDIS_URL=redis://redis:6379
     volumes:
       - ./ssl:/etc/ssl/certs:ro
       - ./logs:/app/logs
     networks:
       - wata-network
     restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        delay: 10s
+      restart_policy:
+        condition: any
+        max_attempts: 5
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -133,6 +165,7 @@ volumes:
   frontend_dist:
   prometheus_data:
   grafana_data:
+  redis_data:
 
 networks:
   wata-network:
